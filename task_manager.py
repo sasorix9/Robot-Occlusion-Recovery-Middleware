@@ -14,7 +14,11 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MEMORY_DIR = Path(__file__).resolve().parent / "memory"
-OPENVLA_PATH = Path("/root/projects/gello_software/build/run_fr5_openvla")
+OPENVLA_PATH = Path(
+    os.environ.get(
+        "OPENVLA_PATH", "/root/projects/gello_software/build/run_fr5_openvla"
+    )
+)
 VISION_MEMORY_PATH = Path(__file__).resolve().with_name("vision_memory.py")
 MAX_STEPS = 1000
 WAIT_STATUS_SECONDS = 5.0

@@ -7,6 +7,14 @@ model on RK3588 to track one `apple`, `orange`, `cup`, and `book`.
 The system records whether each object is `visible`, `occluded`, or `missing`.
 Only `cup` and `book` may occlude `apple` or `orange`.
 
+```text
+RealSense RGB-D -> visual memory -> task state
+                                     |
+                  OpenVLA/FR5 <------+
+                         |
+                         +-> reobserve after occluder removal
+```
+
 ## Files
 
 - `vision_memory.py`: RGB-D capture, RKNN segmentation, memory aggregation,
@@ -14,20 +22,40 @@ Only `cup` and `book` may occlude `apple` or `orange`.
 - `task_manager.py`: validates memory and runs the fixed OpenVLA task flow.
 - `book_pose_viewer.py`: read-only live diagnostic for book segmentation.
 - `test_memory_logic.py`: offline `unittest` coverage; it never moves a robot.
+- `integration/run_fr5_openvla.cpp`: RealSense-to-OpenVLA-to-FR5 execution
+  adapter used in the experiments.
+- `CMakeLists.txt`: standalone build for the execution adapter.
 
 ## Requirements
 
-The tested target is Ubuntu 20.04 aarch64 with Python 3.8, NumPy, OpenCV,
-`pyrealsense2`, and RKNN Toolkit Lite2 1.6.0. The RKNN model and OpenVLA
-runner are external artifacts and are not included.
+The tested target is Ubuntu 20.04 aarch64 with Python 3.8, NumPy 1.17.4,
+OpenCV 4.2.0, librealsense 2.54.2, RKNN Toolkit Lite2/runtime 1.6.0, and
+RKNPU driver 0.9.8. The RKNN model, FAIRINO SDK, and fine-tuned OpenVLA
+weights are external artifacts and are not included. The experiment used the
+[RK3588 YOLOv8s-seg INT8 model](https://github.com/Qengineering/YoloV8-seg-NPU/tree/main/rk3588).
 
 Before deployment, check these installation-specific constants:
 
 - `DEFAULT_MODEL_PATH` and `CAMERA_SERIAL` in `vision_memory.py`
-- `OPENVLA_PATH` in `task_manager.py`
+- server, robot, gripper, camera, and Tool/User constants at the top of
+  `integration/run_fr5_openvla.cpp`
 
 The OpenVLA executable must accept `--instruction`, `--max-steps`, and
 `--enable-motion`, must handle `SIGINT`, and must not read stdin.
+
+Build the included FR5 adapter against a locally installed FAIRINO SDK:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -DFAIRINO_SDK_DIR=/path/to/fairino/libfairino
+cmake --build build --target run_fr5_openvla -j2
+./build/run_fr5_openvla --self-test
+export OPENVLA_PATH="$PWD/build/run_fr5_openvla"
+```
+
+The adapter also requires librealsense2, OpenCV, libcurl, nlohmann/json, and
+POSIX threads. Dataset collection and RLDS conversion live in the companion
+[Data_collector](https://github.com/sasorix9/Data_collector) repository.
 
 ## Test
 
@@ -82,3 +110,9 @@ DISPLAY=:0 /usr/bin/python3 book_pose_viewer.py
 
 This project intentionally does not support multiple instances per class,
 partial or multiple occluders, a moving camera, or concurrent tasks.
+
+## License and Attribution
+
+Project code is released under the MIT License. Third-party models, SDKs, and
+reference implementations retain their own licenses; see
+`THIRD_PARTY_NOTICES.md`.
